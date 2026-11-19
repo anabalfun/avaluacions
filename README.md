@@ -2,7 +2,7 @@
 
 An interactive explorer that makes Catalonia’s public school-assessment results easier to understand. It covers **6th-grade primary school** and **4th-year compulsory secondary education (ESO)**, with a Catalan interface.
 
-[Documentació en català](README.ca.md)
+[Live dashboard](https://avaluacions.anabalfun.workers.dev) · [Documentació en català](README.ca.md)
 
 ![Primary-school dashboard with the Pruna palette](assets/preview.png)
 

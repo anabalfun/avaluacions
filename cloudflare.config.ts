@@ -4,5 +4,7 @@ export default {
   worker: {
     name: "avaluacions",
     compatibilityDate: "2026-11-19",
+    workersDev: true,
+    previewUrls: false,
   },
 };
