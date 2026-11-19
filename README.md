@@ -83,7 +83,7 @@ node --check docs/app.mjs
 
 The suite covers both datasets: independently checked reference values, aggregation across gender partitions, weighted means, missing-data semantics, component coverage, filter isolation, signed changes, trend discontinuities, and the aggregate data schema. Hand-calculated CSV fixtures cover decimal commas, normalization, invalid values, zero scores, histogram boundaries, and exclusion of identifiers.
 
-[GitHub Actions](.github/workflows/checks.yml) runs these checks on pushes and pull requests. The workflow has read-only repository permissions. It has not run remotely until the project is uploaded and Actions executes it.
+[GitHub Actions](.github/workflows/checks.yml) runs these checks on pushes and pull requests. The workflow has read-only repository permissions. The initial remote run passed; subsequent pushes and pull requests run the same checks.
 
 The ingestion script was also run against both complete source exports and reproduced the bundled datasets exactly. Browser checks have been performed during development; they are not automated in this suite. Automated browser regression tests and an accessibility audit remain useful follow-ups.
 
@@ -103,6 +103,16 @@ python3 scripts/build_data.py \
 ```
 
 Review schema and coverage changes, regenerate the data, run the checks, and inspect representative views. Subject labels and coverage notes in the UI currently require manual review when a new export changes the available years or columns.
+
+## Cloudflare deployment
+
+This repository can be deployed as a Workers Static Assets application. Connect `anabalfun/avaluacions`, use production branch `main`, leave the build command empty, and set the deploy command to:
+
+```sh
+npx --yes cf deploy ./docs
+```
+
+`cloudflare.config.ts` fixes the Worker name to `avaluacions`. The website remains static; no server-side application code or database is added. Git integration deploys updated repository snapshots, not new data from the official source. Source-data updates still require the rebuild procedure above.
 
 ## Publish
 
