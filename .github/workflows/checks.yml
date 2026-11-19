@@ -1,0 +1,23 @@
+name: Checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check browser JavaScript syntax
+        run: node --check docs/app.mjs
+      - name: Verify aggregation and comparison behavior
+        run: node --test tests/model.test.mjs
+      - name: Verify CSV ingestion with hand-calculated fixtures
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
