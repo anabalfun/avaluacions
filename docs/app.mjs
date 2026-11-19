@@ -3,6 +3,7 @@ const $=id=>document.getElementById(id),num=new Intl.NumberFormat('ca-ES',{maxim
 const f=x=>num.format(x),count=x=>integer.format(x),signed=x=>(x>=0?'+':'−')+f(Math.abs(x)),escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let data,mode='annual',cache=new Map(),stage='primary',SUBJECTS=PRIMARY_SUBJECTS;
 const datasets=new Map();
+const stageModes={primary:'annual',eso:'annual'};
 const STAGES={
  primary:{file:'data.json',label:'6è de primària',heading:'resultats de sisè.',eyebrow:'EDUCACIÓ PRIMÀRIA · CATALUNYA',brand:'sisè',icon:'6',source:'https://analisi.transparenciacatalunya.cat/Educaci-/Avaluaci-de-sis-d-educaci-prim-ria/rk5x-gny6/about_data',name:'Avaluació de sisè d’educació primària',coverage:'2009–2025, sense registres de 2020. Anglès té dades a partir de 2010 i medi a partir de 2018. Francès no s’inclou.',missing:'Anglès és disponible des de 2010 i medi des de 2018.',territory:'Penedès i Alt Pirineu i Aran apareixen a partir de 2024; Barcelona Comarques deixa d’aparèixer el 2025 i hi apareix Barcelonès. Una fila de 2024 sense àrea es manté en els totals catalans.',territoryYear:2024,subjects:PRIMARY_SUBJECTS},
  eso:{file:'data-eso.json',label:'4t d’ESO',heading:'resultats de 4t d’ESO.',eyebrow:'EDUCACIÓ SECUNDÀRIA OBLIGATÒRIA · CATALUNYA',brand:'4t ESO',icon:'4',source:'https://analisi.transparenciacatalunya.cat/Educaci-/Avaluaci-de-quart-d-Educaci-Secund-ria-Obligat-ria/59vm-wwq7/about_data',name:'Avaluació de quart d’Educació Secundària Obligatòria',coverage:'2012–2025, amb registres de 2020. Ciència i tecnologia té puntuacions des de 2016. Francès i alemany no s’inclouen.',missing:'Ciència i tecnologia és disponible des de 2016.',territory:'Penedès, Alt Pirineu i Aran i Barcelonès apareixen a partir de 2023; Barcelona Comarques deixa d’aparèixer aquell any. Garraf consta en 19 registres de 2017; es manté sense reassignar-los.',territoryYear:2023,subjects:[...PRIMARY_SUBJECTS.slice(0,4),{key:'PCIEN',name:'Ciència i tecnologia',tag:'CT'}]}
@@ -87,7 +88,7 @@ async function loadStage(next){
  try{
   if(!datasets.has(next)){const response=await fetch('./'+STAGES[next].file);if(!response.ok)throw Error('data');datasets.set(next,await response.json())}
   const prior={};for(const id of ['year','fromYear','toYear'])prior[id]=$(id).value;
-  stage=next;data=datasets.get(next);SUBJECTS=STAGES[next].subjects;cache.clear();
+  stageModes[stage]=mode;mode=stageModes[next];stage=next;data=datasets.get(next);SUBJECTS=STAGES[next].subjects;cache.clear();
   const opts=data.years.map(y=>`<option value="${y}">${y}</option>`).join('');
   for(const id of ['year','fromYear','toYear'])$(id).innerHTML=opts;
   $('year').value=data.years.includes(+prior.year)?prior.year:data.years.at(-1);
