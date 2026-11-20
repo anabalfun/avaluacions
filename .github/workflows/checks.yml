@@ -18,6 +18,10 @@ jobs:
       - name: Check browser JavaScript syntax
         run: node --check docs/app.mjs
       - name: Verify aggregation and comparison behavior
-        run: node --test tests/model.test.mjs
+        run: node --test tests/*.test.mjs
       - name: Verify CSV ingestion with hand-calculated fixtures
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Install Cloudflare build tools
+        run: npm ci --ignore-scripts
+      - name: Validate Cloudflare bundle without deploying
+        run: npm run build:cloudflare

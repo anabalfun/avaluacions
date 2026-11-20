@@ -6,3 +6,10 @@ __pycache__/
 raw-data/
 *.csv
 *.zip
+node_modules/
+.cloudflare/
+.wrangler/
+.dev.vars
+.dev.vars.*
+*.pem
+*.key
