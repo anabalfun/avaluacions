@@ -113,14 +113,18 @@ Les dades inicials també s’han contrastat amb lectures independents dels CSV 
 
 Els controls també s’executen a GitHub Actions en cada push i pull request. No hi ha proves automatitzades de navegador; la verificació visual s’ha fet manualment durant el desenvolupament.
 
-## Allotjament a Cloudflare i diagnòstic d’errors
+## Allotjament a Cloudflare i diagnòstic temporal
 
-El web està publicat a [avaluacions.anabalfun.workers.dev](https://avaluacions.anabalfun.workers.dev/). Cloudflare desplega els canvis de `main` després de fusionar una PR. Les dades oficials no s’actualitzen automàticament.
+El web està publicat a [avaluacions.anabalfun.workers.dev](https://avaluacions.anabalfun.workers.dev/). Cloudflare desplega els canvis de `main` després de fusionar una PR. Les dades oficials no s’actualitzen automàticament. La carpeta `docs/` continua sent portable a altres allotjaments estàtics.
 
-La carpeta `docs/` continua sent un web estàtic portable. El wrapper `cloudflare/worker.mjs` i la configuració de Cloudflare només afecten aquest allotjament. El wrapper registra respostes 4xx/5xx amb `event`, ruta pública permesa (o `[other]`), estat i data. No registra consultes, capçaleres, IP, cookies, cossos ni detalls d’excepcions; els registres automàtics d’invocació i les traces estan desactivats. Cloudflare hi afegeix metadades pròpies. Els registres es consulten a **Workers & Pages → avaluacions → Observability → Logs**, cercant `asset_error`, i no es pugen a GitHub.
+La [PR #1](https://github.com/anabalfun/avaluacions/pull/1) introdueix un wrapper de diagnòstic temporal. El pla és recollir dades durant **3–5 dies des del primer desplegament correcte a producció**, revisar els errors cada dia i després desplegar la PR de retorn a l’allotjament estàtic. Les PR no es fusionen ni es despleguen automàticament en una data determinada. Aquesta documentació descriu l’estat previst després del retorn; no afirma que producció ja hagi canviat.
 
-**Abans de fusionar la PR de diagnòstic**, cal substituir l’ordre de desplegament de Workers Builds per `npm ci --ignore-scripts && npm run deploy` i deixar buida l’ordre de compilació. L’ordre antiga `npx --yes cf deploy ./docs` no admet el nou wrapper. Per validar localment: `npm ci --ignore-scripts` i `npm run build:cloudflare`.
+Durant el diagnòstic, cerca `asset_error` a **Workers & Pages → avaluacions → Observability → Logs**. Les rutes desconegudes es registren com `[other]`; les consultes, capçaleres, IP, cookies i cossos no s’inclouen als registres personalitzats. Revisa les dades abans que caduquin (actualment 3 dies al pla Workers Free). Si cal, conserva només un resum agregat no sensible fora del repositori públic.
 
-Cada petició passa pel Worker: consumeix quota i pot afectar cost i latència. Els registres també estan subjectes als límits i la retenció del pla. No recuperen errors anteriors al desplegament ni peticions rebutjades abans del Worker. Vegeu [les instruccions completes, els límits i la reversió](README.md#cloudflare-deployment).
+El retorn elimina el wrapper i desactiva explícitament els registres i les traces. Les peticions tornen a servir-se directament com a fitxers estàtics, sense executar el Worker a cada petició. Els registres anteriors continuen subjectes a la retenció de Cloudflare. Les mètriques d’estat continuen disponibles, però ja no es generen registres personalitzats de rutes.
+
+A Workers Builds es manté l’ordre `npm ci --ignore-scripts && npm run deploy`, amb l’ordre de compilació buida: no cal tornar a canviar-la. Per validar localment: `npm ci --ignore-scripts` i `npm run build:cloudflare`. Després de recollir les dades, cal orientar la PR de retorn a `main`, revisar les proves i fusionar-la; no s’ha de fusionar a la branca de diagnòstic.
+
+Les peticions estàtiques són gratuïtes i il·limitades segons les tarifes actuals. El wrapper temporal consumeix quota de Workers: el pla gratuït inclou actualment 100.000 peticions diàries compartides al compte; el pla de pagament parteix de 5 dòlars mensuals. Els registres tenen límits propis. No es contracta cap pla de pagament amb aquesta PR. Vegeu [els detalls i la verificació del retorn](README.md#cloudflare-deployment).
 
 Les credencials es mantenen a Cloudflare o a l’entorn local autenticat. No s’han d’afegir al repositori; `.gitignore` exclou secrets locals, claus privades i fitxers de treball de Cloudflare.

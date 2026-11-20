@@ -1,24 +1,16 @@
-import { bindings, defineConfig } from "cf/config";
+import { defineConfig } from "cf/config";
 
+// The temporary diagnostics window is complete: serve assets directly again.
 export default defineConfig({
   worker: {
     name: "avaluacions",
-    entrypoint: "./cloudflare/worker.mjs",
     compatibilityDate: "2026-11-19",
     workersDev: true,
     previewUrls: false,
-    env: { ASSETS: bindings.assets() },
-    assets: { runWorkerFirst: true },
+    // Explicitly disable persistence rather than inheriting deployed settings.
     observability: {
-      enabled: true,
-      redactQueryString: true,
-      logs: {
-        enabled: true,
-        headSamplingRate: 1,
-        invocationLogs: false,
-        persist: true,
-      },
-      // Automatic traces can include request metadata; custom error logs suffice.
+      enabled: false,
+      logs: { enabled: false, invocationLogs: false },
       traces: { enabled: false },
     },
   },
