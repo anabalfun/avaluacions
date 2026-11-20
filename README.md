@@ -108,29 +108,31 @@ Review schema and coverage changes, regenerate the data, run the checks, and ins
 
 The production dashboard is hosted on **Cloudflare Workers** at [avaluacions.anabalfun.workers.dev](https://avaluacions.anabalfun.workers.dev/). Git integration watches `main` in `anabalfun/avaluacions`; merging a PR triggers deployment of the repository snapshot. Official source-data updates still require the rebuild procedure above.
 
-The browser application remains static and portable: `docs/` can still be served by Python, GitHub Pages, or any static host. The optional `cloudflare/worker.mjs` wrapper and the two Cloudflare configuration files apply only to Cloudflare hosting.
+The browser application is static and portable: `docs/` can be served by Python, GitHub Pages, or any static host. The Cloudflare configuration files apply only to Cloudflare hosting. Requests now go directly to static assets; there is no Worker entrypoint, ASSETS binding, or `runWorkerFirst` wrapper.
 
-### Deploying the error-logging wrapper
+### Deploy and validate
 
 Requires Node.js 22+ and npm. Cloudflare build tools are development dependencies with versions recorded in `package-lock.json`.
 
 ```sh
 npm ci --ignore-scripts
-npm run build:cloudflare  # local bundle validation; no upload or credentials needed
+npm run build:cloudflare  # local asset-build validation; no upload or credentials needed
 npm run deploy           # authenticated Cloudflare deployment
 ```
 
-**Before merging the logging PR**, update Workers Builds → Settings → Build configuration: leave the build command empty and replace `npx --yes cf deploy ./docs` with **`npm ci --ignore-scripts && npm run deploy`**. The old directory-only command cannot deploy a Worker entrypoint. Changing that setting does not itself deploy this PR; production deploys when it reaches `main`. `cf` delegates bundling to Wrangler using `wrangler.config.ts`, whose only build setting is the `docs/` asset directory; runtime settings remain in `cloudflare.config.ts`.
+Workers Builds should keep its deploy command **`npm ci --ignore-scripts && npm run deploy`**, with the build command empty. This works with the restored assets-only configuration, so the end of the diagnostic period needs no second dashboard command change. `cf` delegates asset preparation to Wrangler using `wrangler.config.ts`, whose only build setting is the `docs/` directory. Local Python hosting and GitHub Pages do not require these tools.
 
-### Investigating HTTP errors
+### Temporary diagnostics and returning to static hosting
 
-The wrapper forwards requests to Cloudflare's `ASSETS` binding, returns the original asset response, and emits one structured `asset_error` log for HTTP 4xx/5xx responses. Asset-serving exceptions return a generic 500 with the same minimal log shape. It does not buffer files or rewrite their cache headers.
+[PR #1](https://github.com/anabalfun/avaluacions/pull/1) adds a temporary error-logging Worker to investigate asset 4xx responses. The plan is to gather data for **3–5 days after its first successful production deployment**, review error counts and patterns daily, then deploy this static-hosting restoration. The period starts at deployment, not when a PR is opened. Neither step is scheduled or merged automatically. This section describes the intended state after the restoration is deployed; it does not assert that production has already changed.
 
-In **Workers & Pages → avaluacions → Observability → Logs**, select a time window after deployment and search for `asset_error`. Each custom record contains only `event`, `path`, `status`, and an ISO timestamp. Fixed public paths (the dashboard files, `/favicon.ico`, `/robots.txt`, `/sitemap.xml`) are recorded literally; all other paths appear as `[other]`. This intentionally limits diagnosis of arbitrary scanner URLs to protect visitors from logging personal information embedded in paths.
+During the diagnostic period, custom `asset_error` logs contain status, time and allowlisted public filenames; arbitrary paths are `[other]`. Automatic invocation logs and traces are disabled. Review them in **Workers & Pages → avaluacions → Observability → Logs**. Inspect evidence before the plan's retention window expires (currently 3 days on Workers Free); preserve only a non-sensitive aggregate summary outside the public repository if needed.
 
-Our custom logs exclude query strings, headers, IP addresses, cookies, request bodies, and exception details. Automatic invocation logs and traces are disabled; query-string redaction is also enabled as defense in depth. Cloudflare still processes request information as the hosting provider and attaches its own platform metadata to log events. These diagnostics stay in Cloudflare, not GitHub. They cannot recover errors that occurred before deployment or requests rejected before the Worker runs. Logs are subject to Cloudflare's plan-specific retention and usage limits, not a permanent audit trail.
+This restoration removes the wrapper and its tests and explicitly disables Workers Logs and traces. Every file is served directly as a static asset again, avoiding the per-request Worker execution introduced for diagnostics. The public site, filters, charts, datasets and live URL are unchanged. Existing logs remain subject to Cloudflare's retention rules; disabling logging does not delete historical records. Asset status metrics remain available, but there will be no new custom path-level error logs.
 
-**Tradeoff:** every request now invokes the Worker so that asset errors can be observed, including requests previously served directly as static assets. This consumes Workers request quota and can affect cost and latency; emitted logs also count toward the applicable logging limits. See [asset routing](https://developers.cloudflare.com/workers/static-assets/routing/worker-script/), [Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) and [pricing](https://developers.cloudflare.com/workers/platform/pricing/). To revert to static-only Cloudflare hosting, remove the entrypoint, ASSETS binding and logging/routing settings from `cloudflare.config.ts`, and restore the directory-only deploy command.
+Direct static-asset requests are free and unlimited under [Cloudflare's current pricing](https://developers.cloudflare.com/workers/platform/pricing/). The temporary wrapper instead counts every request toward Workers usage: the Free plan currently allows 100,000 requests/day shared across the account, while the Paid plan starts at $5/month and has included allowances plus overage charges. Logging has separate limits. The 194 asset requests observed in the initial 24-hour investigation were far below that allowance, but are only one day's traffic, not a guarantee of future usage. The diagnostic PR does not upgrade the account's plan.
+
+To complete the restoration: merge the diagnostics PR first; after 3–5 days of production data, review the findings, retarget/rebase the restoration PR onto `main` if necessary (especially after a squash merge), check its final diff and CI, merge it, and verify the resulting Cloudflare deployment. Confirm the homepage, both stages and data downloads work, and inspect the deployed configuration for no entrypoint/ASSETS binding/`runWorkerFirst`, with logging disabled. Do not merge the restoration into the diagnostics feature branch.
 
 ### Credentials and repository hygiene
 
