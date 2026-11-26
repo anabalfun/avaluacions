@@ -1,6 +1,6 @@
 # Avaluacions
 
-[English overview and engineering decisions](README.md)
+[Web públic a Cloudflare](https://avaluacions.anabalfun.workers.dev/) · [English overview and engineering decisions](README.md)
 
 Explorador en català dels resultats de **6è de primària** i **4t d’ESO** a Catalunya, a partir de dades públiques de la Generalitat.
 
@@ -105,10 +105,22 @@ Pots passar només una etapa. El procés usa la biblioteca estàndard de Python 
 Amb Node.js instal·lat:
 
 ```sh
-node --test tests/model.test.mjs
+node --test tests/*.test.mjs
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
 Les dades inicials també s’han contrastat amb lectures independents dels CSV originals i s’han comprovat les vistes, els filtres i el canvi d’etapa al navegador.
 
 Els controls també s’executen a GitHub Actions en cada push i pull request. No hi ha proves automatitzades de navegador; la verificació visual s’ha fet manualment durant el desenvolupament.
+
+## Allotjament a Cloudflare i diagnòstic d’errors
+
+El web està publicat a [avaluacions.anabalfun.workers.dev](https://avaluacions.anabalfun.workers.dev/). Cloudflare desplega els canvis de `main` després de fusionar una PR. Les dades oficials no s’actualitzen automàticament.
+
+La carpeta `docs/` continua sent un web estàtic portable. El wrapper `cloudflare/worker.mjs` i la configuració de Cloudflare només afecten aquest allotjament. El wrapper registra respostes 4xx/5xx amb `event`, ruta pública permesa (o `[other]`), estat i data. No registra consultes, capçaleres, IP, cookies, cossos ni detalls d’excepcions; els registres automàtics d’invocació i les traces estan desactivats. Cloudflare hi afegeix metadades pròpies. Els registres es consulten a **Workers & Pages → avaluacions → Observability → Logs**, cercant `asset_error`, i no es pugen a GitHub.
+
+**Abans de fusionar la PR de diagnòstic**, cal substituir l’ordre de desplegament de Workers Builds per `npm ci --ignore-scripts && npm run deploy` i deixar buida l’ordre de compilació. L’ordre antiga `npx --yes cf deploy ./docs` no admet el nou wrapper. Per validar localment: `npm ci --ignore-scripts` i `npm run build:cloudflare`.
+
+Cada petició passa pel Worker: consumeix quota i pot afectar cost i latència. Els registres també estan subjectes als límits i la retenció del pla. No recuperen errors anteriors al desplegament ni peticions rebutjades abans del Worker. Vegeu [les instruccions completes, els límits i la reversió](README.md#cloudflare-deployment).
+
+Les credencials es mantenen a Cloudflare o a l’entorn local autenticat. No s’han d’afegir al repositori; `.gitignore` exclou secrets locals, claus privades i fitxers de treball de Cloudflare.

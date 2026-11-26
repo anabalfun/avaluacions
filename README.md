@@ -2,7 +2,7 @@
 
 An interactive explorer that makes Catalonia’s public school-assessment results easier to understand. It covers **6th-grade primary school** and **4th-year compulsory secondary education (ESO)**, with a Catalan interface.
 
-[Live dashboard](https://avaluacions.anabalfun.workers.dev) · [Documentació en català](README.ca.md)
+[Live dashboard on Cloudflare](https://avaluacions.anabalfun.workers.dev) · [Documentació en català](README.ca.md)
 
 ![Primary-school dashboard with the Pruna palette](assets/preview.png)
 
@@ -76,7 +76,7 @@ Detailed coverage, normalization rules and update instructions are in [README.ca
 Requires Node.js 22+ and Python 3. The tests use their standard libraries, with no test dependencies.
 
 ```sh
-node --test tests/model.test.mjs
+node --test tests/*.test.mjs
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 node --check docs/app.mjs
 ```
@@ -106,13 +106,35 @@ Review schema and coverage changes, regenerate the data, run the checks, and ins
 
 ## Cloudflare deployment
 
-This repository can be deployed as a Workers Static Assets application. Connect `anabalfun/avaluacions`, use production branch `main`, leave the build command empty, and set the deploy command to:
+The production dashboard is hosted on **Cloudflare Workers** at [avaluacions.anabalfun.workers.dev](https://avaluacions.anabalfun.workers.dev/). Git integration watches `main` in `anabalfun/avaluacions`; merging a PR triggers deployment of the repository snapshot. Official source-data updates still require the rebuild procedure above.
+
+The browser application remains static and portable: `docs/` can still be served by Python, GitHub Pages, or any static host. The optional `cloudflare/worker.mjs` wrapper and the two Cloudflare configuration files apply only to Cloudflare hosting.
+
+### Deploying the error-logging wrapper
+
+Requires Node.js 22+ and npm. Cloudflare build tools are development dependencies with versions recorded in `package-lock.json`.
 
 ```sh
-npx --yes cf deploy ./docs
+npm ci --ignore-scripts
+npm run build:cloudflare  # local bundle validation; no upload or credentials needed
+npm run deploy           # authenticated Cloudflare deployment
 ```
 
-`cloudflare.config.ts` fixes the Worker name to `avaluacions`. The website remains static; no server-side application code or database is added. Git integration deploys updated repository snapshots, not new data from the official source. Source-data updates still require the rebuild procedure above.
+**Before merging the logging PR**, update Workers Builds → Settings → Build configuration: leave the build command empty and replace `npx --yes cf deploy ./docs` with **`npm ci --ignore-scripts && npm run deploy`**. The old directory-only command cannot deploy a Worker entrypoint. Changing that setting does not itself deploy this PR; production deploys when it reaches `main`. `cf` delegates bundling to Wrangler using `wrangler.config.ts`, whose only build setting is the `docs/` asset directory; runtime settings remain in `cloudflare.config.ts`.
+
+### Investigating HTTP errors
+
+The wrapper forwards requests to Cloudflare's `ASSETS` binding, returns the original asset response, and emits one structured `asset_error` log for HTTP 4xx/5xx responses. Asset-serving exceptions return a generic 500 with the same minimal log shape. It does not buffer files or rewrite their cache headers.
+
+In **Workers & Pages → avaluacions → Observability → Logs**, select a time window after deployment and search for `asset_error`. Each custom record contains only `event`, `path`, `status`, and an ISO timestamp. Fixed public paths (the dashboard files, `/favicon.ico`, `/robots.txt`, `/sitemap.xml`) are recorded literally; all other paths appear as `[other]`. This intentionally limits diagnosis of arbitrary scanner URLs to protect visitors from logging personal information embedded in paths.
+
+Our custom logs exclude query strings, headers, IP addresses, cookies, request bodies, and exception details. Automatic invocation logs and traces are disabled; query-string redaction is also enabled as defense in depth. Cloudflare still processes request information as the hosting provider and attaches its own platform metadata to log events. These diagnostics stay in Cloudflare, not GitHub. They cannot recover errors that occurred before deployment or requests rejected before the Worker runs. Logs are subject to Cloudflare's plan-specific retention and usage limits, not a permanent audit trail.
+
+**Tradeoff:** every request now invokes the Worker so that asset errors can be observed, including requests previously served directly as static assets. This consumes Workers request quota and can affect cost and latency; emitted logs also count toward the applicable logging limits. See [asset routing](https://developers.cloudflare.com/workers/static-assets/routing/worker-script/), [Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) and [pricing](https://developers.cloudflare.com/workers/platform/pricing/). To revert to static-only Cloudflare hosting, remove the entrypoint, ASSETS binding and logging/routing settings from `cloudflare.config.ts`, and restore the directory-only deploy command.
+
+### Credentials and repository hygiene
+
+No credentials are needed in source code. Cloudflare deployment credentials stay in the hosting provider's build environment or your local authenticated CLI; never paste them into configuration, documentation, issues, or logs. `.gitignore` excludes `.env*`, `.dev.vars*`, private keys, dependencies, local Cloudflare state, raw CSV exports, and archives. Only `docs/` is uploaded as public assets; configuration, tests, and logs are not public website files. Ignore rules do not protect files already tracked by Git: review staged files and diffs before pushing. If a secret is ever committed, revoke it immediately; deleting it from the latest revision is insufficient.
 
 ## Publish
 

@@ -1,0 +1,14 @@
+{
+  "name": "avaluacions",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "build:cloudflare": "cf build",
+    "deploy": "cf deploy"
+  },
+  "devDependencies": {
+    "cf": "1.0.0-rc.2",
+    "wrangler": "4.165.0"
+  }
+}
